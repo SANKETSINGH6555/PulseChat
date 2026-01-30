@@ -1,16 +1,15 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
-import { io } from "socket.io-client";
-
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
+import { socket } from "../main"; // single global socket
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isCheckingAuth: true,
   isSigningUp: false,
   isLoggingIn: false,
-  socket: null,
+
+  // 👉 IMPORTANT: keep this null initially (no circular reference)
   onlineUsers: [],
 
   checkAuth: async () => {
@@ -35,7 +34,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Account created successfully!");
       get().connectSocket();
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Signup failed");
     } finally {
       set({ isSigningUp: false });
     }
@@ -48,10 +47,9 @@ export const useAuthStore = create((set, get) => ({
       set({ authUser: res.data });
 
       toast.success("Logged in successfully");
-
       get().connectSocket();
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Login failed");
     } finally {
       set({ isLoggingIn: false });
     }
@@ -60,7 +58,7 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
-      set({ authUser: null });
+      set({ authUser: null, onlineUsers: [] });
       toast.success("Logged out successfully");
       get().disconnectSocket();
     } catch (error) {
@@ -76,29 +74,31 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Profile updated successfully");
     } catch (error) {
       console.log("Error in update profile:", error);
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Update failed");
     }
   },
 
+  // ✅ Connect using the socket from main.jsx (no new io())
   connectSocket: () => {
     const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    if (!authUser) return;
 
-    const socket = io(BASE_URL, {
-      withCredentials: true, // this ensures cookies are sent with the connection
-    });
+    // ensure socket is connected
+    if (!socket.connected) {
+      socket.connect();
+    }
 
-    socket.connect();
+    // REMOVE old listeners first (prevents duplicates)
+    socket.off("getOnlineUsers");
 
-    set({ socket });
-
-    // listen for online users event
+    // ✅ ATTACH LISTENER EVERY TIME (this is the key fix)
     socket.on("getOnlineUsers", (userIds) => {
+      console.log("ONLINE USERS RECEIVED:", userIds);
       set({ onlineUsers: userIds });
     });
   },
 
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket.disconnect();
+    if (socket.connected) socket.disconnect();
   },
 }));

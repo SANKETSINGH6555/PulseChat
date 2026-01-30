@@ -20,6 +20,27 @@ const messageSchema = new mongoose.Schema(
     image: {
       type: String,
     },
+
+    // ✅ READ RECEIPT FIELD
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
+    reactions: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        emoji: {
+          type: String,
+        },
+      },
+    ],
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

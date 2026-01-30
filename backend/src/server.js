@@ -8,6 +8,9 @@ import messageRoutes from "./routes/message.route.js";
 import { connectDB } from "./lib/db.js";
 import { ENV } from "./lib/env.js";
 import { app, server } from "./lib/socket.js";
+import aiRoutes from "./routes/ai.route.js";
+
+
 
 const __dirname = path.resolve();
 
@@ -19,6 +22,7 @@ app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/ai", aiRoutes);
 
 // make ready for deployment
 if (ENV.NODE_ENV === "production") {
@@ -33,3 +37,5 @@ server.listen(PORT, () => {
   console.log("Server running on port: " + PORT);
   connectDB();
 });
+
+

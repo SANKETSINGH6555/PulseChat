@@ -3,14 +3,26 @@ import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import NoChatsFound from "./NoChatsFound";
 import { useAuthStore } from "../store/useAuthStore";
+import { socket } from "../main";
+
 
 function ChatsList() {
   const { getMyChatPartners, chats, isUsersLoading, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { setOnlineUsers } = useAuthStore();
+
 
   useEffect(() => {
     getMyChatPartners();
   }, [getMyChatPartners]);
+  useEffect(() => {
+  socket.on("onlineUsers", (users) => {
+    setOnlineUsers(users);
+  });
+
+  return () => socket.off("onlineUsers");
+}, []);
+
 
   if (isUsersLoading) return <UsersLoadingSkeleton />;
   if (chats.length === 0) return <NoChatsFound />;

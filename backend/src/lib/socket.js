@@ -3,6 +3,7 @@ import http from "http";
 import express from "express";
 import { ENV } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
+import User from "../models/User.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -14,30 +15,58 @@ const io = new Server(server, {
   },
 });
 
-// apply authentication middleware to all socket connections
 io.use(socketAuthMiddleware);
 
-// we will use this function to check if the user is online or not
+// map: userId -> socketId
+const userSocketMap = {};
+
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
-// this is for storig online users
-const userSocketMap = {}; // {userId:socketId}
-
-io.on("connection", (socket) => {
-  console.log("A user connected", socket.user.fullName);
+io.on("connection", async (socket) => {
+  console.log("A user connected:", socket.id, socket.user.fullName);
 
   const userId = socket.userId;
   userSocketMap[userId] = socket.id;
 
-  // io.emit() is used to send events to all connected clients
+  // ✅ USER IS ONLINE → clear lastSeen
+  await User.findByIdAndUpdate(userId, {
+    lastSeen: null,
+  });
+
+  // ✅ Send online users to everyone
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // with socket.on we listen for events from clients
-  socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.user.fullName);
+  // ✅ Also send to newly connected user
+  socket.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  // ---------- TYPING INDICATOR ----------
+  socket.on("typing", (receiverUserId) => {
+    const receiverSocketId = getReceiverSocketId(receiverUserId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("userTyping", true);
+    }
+  });
+
+  socket.on("stopTyping", (receiverUserId) => {
+    const receiverSocketId = getReceiverSocketId(receiverUserId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("userTyping", false);
+    }
+  });
+  // -------------------------------------
+
+  socket.on("disconnect", async () => {
+    console.log("A user disconnected:", socket.user.fullName);
+
     delete userSocketMap[userId];
+
+    // ✅ USER WENT OFFLINE → set lastSeen
+    await User.findByIdAndUpdate(userId, {
+      lastSeen: new Date(),
+    });
+
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });

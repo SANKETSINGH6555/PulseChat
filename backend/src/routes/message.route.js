@@ -1,4 +1,6 @@
 import express from "express";
+import { reactToMessage } from "../controllers/message.controller.js";
+
 import {
   getAllContacts,
   getChatPartners,
@@ -7,6 +9,10 @@ import {
 } from "../controllers/message.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import { arcjetProtection } from "../middleware/arcjet.middleware.js";
+import {
+  editMessage,
+  deleteMessage,
+} from "../controllers/message.controller.js";
 
 const router = express.Router();
 
@@ -18,5 +24,9 @@ router.get("/contacts", getAllContacts);
 router.get("/chats", getChatPartners);
 router.get("/:id", getMessagesByUserId);
 router.post("/send/:id", sendMessage);
+router.post("/react/:messageId", reactToMessage);
+router.put("/edit/:messageId", editMessage);
+router.delete("/delete/:messageId", deleteMessage);
+
 
 export default router;
