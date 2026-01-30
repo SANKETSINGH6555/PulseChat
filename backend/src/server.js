@@ -14,7 +14,22 @@ const __dirname = path.resolve();
 const PORT = ENV.PORT || 3000;
 
 app.use(express.json({ limit: "5mb" }));
-app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (
+        !origin || // allow non-browser tools
+        origin.startsWith("http://localhost") || // local dev
+        origin.includes("vercel.app") // all Vercel deployments
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
